@@ -100,10 +100,31 @@ def main():
     model = Net().to(device)
     optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum)
 
+    prev = None
     for epoch in range(1, args.epochs + 1):
         train(args, model, device, train_loader, optimizer, epoch)
+        deltas = get_deltas(model, prev)
         test(args, model, device, test_loader)
 
+def get_deltas(model, prev):
+    weights = get_weights(model)
+    if prev is None:
+        return weights
+    deltas = []
+    for (prev_weight, curr_weight) in zip(prev, weights):
+        deltas.append(curr_weight - prev_weight)
+    return deltas
+
+
+def get_weights(model):
+    weights = []
+    params = [model.conv1, model.conv2, model.fc1, model.fc2]
+
+    for param in params:
+        weights.append(param.weight)
+        weights.append(param.bias)
+
+    return weights
 
 if __name__ == '__main__':
     main()

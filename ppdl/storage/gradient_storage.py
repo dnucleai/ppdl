@@ -5,13 +5,13 @@ class GradientStorage(metaclass=ABCMeta):
 
     # TODO: This should be moved to server side so clients can't reinitialize gradients
     @abstractmethod
-    def initialize_gradients(self, shape):
+    def initialize_weights(self, shape):
         pass
 
     @abstractmethod
-    def store_gradients(self, indices, gradients):
+    def update_weights(self, deltas):
         pass
 
     @abstractmethod
-    def fetch_gradients(self, indices):
+    def fetch_weights(self, indices):
         pass
