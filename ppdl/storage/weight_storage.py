@@ -8,7 +8,15 @@ class WeightStorage(metaclass=ABCMeta):
         pass
 
     @abstractmethod
+    def store_stats(self, weights):
+        pass
+
+    @abstractmethod
     def fetch_weights(self):
+        pass
+
+    @abstractmethod
+    def fetch_stats(self):
         pass
 
     @abstractmethod
