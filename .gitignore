@@ -2,3 +2,5 @@
 *.iml*
 *.vscode*
 *pycache*
+.DS_STORE
+
