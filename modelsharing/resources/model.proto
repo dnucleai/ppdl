@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+message Model {
+    string type = 1;
+    repeated Function function = 4;
+}
+
+message Function {
+    string function = 1;
+    repeated string inp = 2;
+    repeated string init_arg = 3;
+    bool apply_func = 4;
+}
+
