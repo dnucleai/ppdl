@@ -1,4 +1,5 @@
-torch
-torchvision
 filelock
 flask
+requests
+torch
+torchvision
