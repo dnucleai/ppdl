@@ -1,0 +1,67 @@
+syntax = "proto3";
+
+package nucleai;
+
+message Void {}
+
+message Event {
+    int32 secondsFromNow = 1;
+}
+
+message ClientId {
+    string txt = 1; // random value
+}
+
+message CycleId {
+    int64 num = 1; // to be incremented each cycle (64 bits not good enough for random)
+}
+
+
+// This is likely going to change
+// Currently for neural nets and based on https://www.cs.cornell.edu/~shmat/shmat_ccs15.pdf Figure 3
+
+message IndexedValue {
+    int32 index = 1;
+    double value = 2;
+}
+
+message Parameters {
+    repeated IndexedValue parameters = 1;
+}
+
+
+// Service and requests and responses below...
+// I want to keep everything here request-response, no streaming!
+// This limitation makes implementation safer now and scale infrastructure easier down the road.
+service Learning {
+
+    // One cycle = one iteration of clients downloading parameters then uploading deltas
+    // The server enforces that each cycle takes a predetermined duration of time.
+    // The client must download parameters then upload deltas before the cycle completes, else it's ignored.
+
+    rpc Download(DownloadRequest) returns (DownloadResponse) {} // client sends this first to join the current cycle and get ML parameters/etc
+    rpc Upload(UploadRequest) returns (UploadResponse) {} // client sends this after, within the same cycle, to give its results to the server
+
+}
+
+
+message DownloadRequest {
+    ClientId clientId = 1;
+}
+
+message DownloadResponse {
+    CycleId cycleId = 1; 
+    Event waitTime = 2; // when this cycle ends
+    Parameters parameters = 3;
+}
+
+
+message UploadRequest {
+    CycleId cycleId = 1; // must match the CycleId sent in the download response
+    ClientId clientId = 2;
+    Parameters deltas = 3; // represents change in parameters
+}
+
+message UploadResponse {
+
+}
