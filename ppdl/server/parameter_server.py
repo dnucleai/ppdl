@@ -29,7 +29,7 @@ class ParameterServer:
                 return False
         return True
 
-    def update_weights(self, deltas, client_id):
+    def update_weights(self, client_id, deltas):
         all_weights = self.weight_storage.fetch_weights()
         new_weights = all_weights + deltas
 
