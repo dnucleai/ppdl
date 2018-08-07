@@ -37,14 +37,17 @@ class PpdlClient:
             else:
                 deltas = flat_params
             self.upload_deltas(deltas)
-            new_deltas = self.parameter_manager.download_params(flat_params)
-            self.update_params(new_deltas)
+            indices, selected_weights = self.parameter_manager.download_params(flat_params)
+            self.update_params(indices, selected_weights)
 
-    def update_params(self, new_deltas):
+    def update_params(self, indices, selected_weights):
+        all_params = self.flatten_parameters()
+        all_params[indices] = selected_weights
+
         start_index = 0
         for param in self.model.parameters():
             flat_param = param.view(-1)
-            flat_param += new_deltas[start_index:start_index + flat_param.size()]
+            flat_param = all_params[start_index:start_index + flat_param.size()]
             start_index += flat_param.size()
 
     def flatten_parameters(self):
@@ -53,6 +56,7 @@ class PpdlClient:
     def upload_deltas(self, deltas):
         threshold = round(self.theta * deltas.size())
         _, indices = torch.topk(deltas, threshold)
+        indices = indices.view(-1)
         new_deltas = torch.zeros(deltas.size())
         new_deltas[indices] = deltas[indices]
         self.parameter_manager.upload_deltas(new_deltas, self.client_id)
