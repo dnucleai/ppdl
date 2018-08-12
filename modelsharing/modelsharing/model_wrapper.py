@@ -1,5 +1,5 @@
 import models.cnn_model as cnn
-class ModelWrapper:
+class ModelWrapper():
 
     def __init__(self, request):
         self.create_model_from_proto( request )
@@ -28,5 +28,12 @@ class ModelWrapper:
 
     def check_model_is_nn(self):
         return self.model.is_nn()
+
+    def get_model(self):
+        return self.model
+
+    def apply(self, input):
+        if self.check_model_is_nn():
+            return self.model(input)
 
 

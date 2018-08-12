@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-# import argparse
+import argparse
 import model_wrapper as MW
 import model_pb2 as mpb2
 
@@ -15,9 +15,9 @@ def main():
     model = read_proto_model( test_file )
     m_wrapper = MW.ModelWrapper( model );
 
-    x = args.tensor
-    if x:
-        m_wrapper.forward(x)
+    input = torch.randn(1, 1, 32, 32)
+    out = m_wrapper.apply(input)
+    print(out)
 
 
 def read_proto_model( file ):
