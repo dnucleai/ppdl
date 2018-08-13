@@ -21,13 +21,7 @@ class ParameterServer:
     def can_download(self):
         if len(self.client_state) != self.num_clients:
             return False
-        temp_state = None
-        for state in self.client_state.values():
-            if temp_state is None:
-                temp_state = state
-            elif state != temp_state:
-                return False
-        return True
+        return len(set(self.client_state.values())) == 1
 
     def update_weights(self, client_id, deltas):
         all_weights = self.weight_storage.fetch_weights()
@@ -39,14 +33,15 @@ class ParameterServer:
         self.weight_storage.store_stats(stats)
 
         self.weight_storage.store_weights(new_weights)
-        self.client_state[client_id] = True
+        self.client_state[client_id] += 1
 
-    def fetch_weights(self, client_id):
-        self.client_state[client_id] = False
+    def fetch_weights(self):
+        while not self.can_download():
+            pass
         weights = self.weight_storage.fetch_weights()
         stats = self.weight_storage.fetch_stats()
 
-        threshold = round(self.theta * stats.size())
+        threshold = round(self.theta * len(stats))
         _, indices = torch.topk(stats, threshold)
         indices = indices.view(-1)
         selected_weights = weights[indices]
