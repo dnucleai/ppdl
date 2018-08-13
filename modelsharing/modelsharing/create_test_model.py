@@ -47,7 +47,7 @@ def main():
     relu3.function = "relu"
 
     dropout.function = "dropout"
-    dropout.inp.extend(["self.training"])
+    dropout.inp.extend(["0.5","training", "False"])
 
     fc2.function = "Linear"
     fc2.init_arg.extend(["50", "10"])

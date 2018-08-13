@@ -1,45 +1,61 @@
-import torch.nn.functional as F
-
 #In the future, this class should be used to validate function inputs
 class FunctionService():
-    def __init__(self, input, training=None):
-        self.input_function = input
-        self.training = training
+    def __init__(self, fm):
+        self.input = None
+        self.training = None
+        self.flags = None
+        self.fm = fm
 
     def set_input(self, input):
-        self.input_function = input
+        self.input = input
+        self.fm.set_input(input)
 
     def set_training(self, training):
         self.training = training
 
-    def apply_view(self, arg1, arg2):
-        return lambda x: self.input_function.view(arg1, arg2)
+    def set_function(self, func):
+        self.function = func
 
-    def apply_dropout(self, *args):
-        if len(args) == 1:
-            if args[0] == 'training':
-                return F.dropout(self.input_function, training=self.training)
-            else:
-                return F.dropout(self.input_function)
+    def clear_inputs(self):
+        self.input = None
+        self.training = None
+        self.flags = None
 
-        elif len(args) == 2:
-            if args[0] == 'training':
-                return F.dropout(self.input_function, args[1], training=self.training)
-            else:
-                return F.dropout(self.input_function, args[1])
+    def apply_torch_function( self, function_message, training, input=None):
+        function_message = function_message
+        self.set_input(input)
+        self.set_training(training)
 
-        elif len(args) == 3:
-            if args[0] == 'training':
-                return F.dropout(self.input_function, args[1], args[0], args[2])
-            else:
-                return F.dropout(self.input_function, args[1], inplace=args[2])
+        input_function = self.fm.get_function(function_message.function)
+        init_args, flags = self.fm.convert_args(function_message.init_arg)
+        converted_flags = self.convert_flags(flags)
 
-    def num_flat_features(self):
-        if self.input_function is None:
-            return
-        size = self.input_function.size()[1:]  # all dimensions except the batch dimension
-        num_features = 1
-        for s in size:
-            num_features *= s
-        return num_features
+        init_function = self.fm.apply_function(input_function, init_args)
+
+        if len(converted_flags) >= 1:
+            init_function = init_function(converted_flags)
+
+        args = function_message.inp
+        args, flags = self.fm.convert_args(args)
+        converted_flags = self.convert_flags(flags)
+
+        if input is not None:
+            next_args = [input]
+            next_args.extend(args)
+            args = next_args
+        func = self.fm.apply_function(init_function, args)
+
+        if len(converted_flags) >= 1:
+            func = func(converted_flags)
+        return func
+
+    def convert_flags(self, flags):
+        converted_flags = []
+        for flag in flags:
+            flag_map = {
+                'training': self.training
+            }
+            converted_flags.append(flag_map[flag])
+        return converted_flags
+
 

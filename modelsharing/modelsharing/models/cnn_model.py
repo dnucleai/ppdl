@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
-import function_mapper as fm
+import function_service
+import function_mapper
 
 class CNNModel (nn.Module):
     def __init__(self, model):
@@ -10,7 +11,9 @@ class CNNModel (nn.Module):
 
     def forward(self, x):
         for function in self.functions:
-            x = fm.apply_torch_function(function, self.training, x)
+            fm = function_mapper.FunctionMapper()
+            fs = function_service.FunctionService( fm )
+            x = fs.apply_torch_function(function, self.training, x)
         return x
 
     def is_nn(self):
