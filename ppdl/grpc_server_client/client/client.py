@@ -6,34 +6,30 @@ import time
 
 class Client():
 
-    def __init__(self):
-        self.channel = grpc.insecure_channel("localhost:1453")
+    def __init__(self, client_id, url=None):
+        self.channel = grpc.insecure_channel(url or "localhost:1453")
         self.stub = pb_grpc.LearningStub(self.channel)
-        self.id = "client_" + str(time.time())
+        self.id = client_id
 
-    def get_client_id(self):
+    def _get_client_id(self):
         return pb.ClientId(txt=self.id)
 
+    # deltas: {index: value} of deltas
     def upload(self, cycle_id, deltas):
-        return self.stub.Upload(pb.UploadRequest(
+        self.stub.Upload(pb.UploadRequest(
             cycleId=pb.CycleId(num=cycle_id),
-            clientId=self.get_client_id(),
-            deltas=deltas,
+            clientId=self._get_client_id(),
+            deltas=pb.Parameters(parameters=[pb.IndexedValue(index=idx, value=val) for idx, val in deltas.items()]),
             ))
 
+    # returns (cycle number, ttl, {index: value} of parameters)
     def download(self):
-        return self.stub.Download(pb.DownloadRequest(clientId=self.get_client_id()))
+        ret = self.stub.Download(pb.DownloadRequest(clientId=self._get_client_id()))
+        return (ret.cycleId.num, ret.waitTime.secondsFromNow, {iv.index: iv.value for iv in ret.parameters.parameters})
 
 
 if __name__ == "__main__":
-    client = Client()
-    dl = client.download()
-    print(dl)
-    print(client.upload(
-        dl.cycleId.num,
-        pb.Parameters(parameters=[
-            pb.IndexedValue(index=1, value=1e6),
-            pb.IndexedValue(index=2, value=1e6),
-            ]
-            )))
+    client = Client("client_" + str(time.time()))
+    cycle_id, params = client.download()
+    client.upload(cycle_id, {1: 1e6, 2: 2e6})
 

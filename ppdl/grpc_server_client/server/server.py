@@ -29,9 +29,10 @@ class Learner:
     # I use Python native arrays here
     #   TODO optimize later if needed 
 
-    def __init__(self, initial_parameters_f, starting_cycle_time=15):
+    def __init__(self, num_parameters, initial_parameters_f, starting_cycle_time=30):
+        self.num_parameters = num_parameters
         self.initial_parameters_f = initial_parameters_f
-        self.dropout_ratio = 0.25 # fraction of params selected for download and upload
+        self.share_ratio = 0.85 # fraction of params selected for download and upload
 
         self.db = Database()
         self.job_id = None
@@ -63,6 +64,7 @@ class Learner:
         self.db.commit()
 
     def _add_parameters(self, parameters, user_id):
+        log.debug("User {} adding {} parameters".format(user_id, len(parameters)))
         # create the upload row
         upload_id = self.db.execute("""
         INSERT INTO ppdl.parameters_upload (cycle_id, user_id) (
@@ -79,20 +81,28 @@ class Learner:
         """, (upload_id, list(dimensions), list(values)))
         self.db.commit()
 
-    def _get_last_parameters(self):
-        # on the fly summation; TODO maybe cache
+    def _get_download_parameters(self):
+        # on the fly aggregation; TODO maybe cache
+        limit = int(self.share_ratio * self.num_parameters)
         rows = self.db.query("""
-        SELECT p.dimension, sum(p.value)
+        SELECT p.dimension, sum(p.value), count(*)
         FROM ppdl.parameter p, ppdl.parameters_upload u, ppdl.cycle c
         WHERE p.upload_id = u.id
         AND u.cycle_id < %s
         AND c.id = u.cycle_id
         AND c.job_id = %s
         GROUP BY p.dimension
-        """, (self.cycle_id, self.job_id))
+        ORDER BY count DESC, random() -- prefer the most updated parameters, break ties randomly
+        LIMIT %s
+        """, (self.cycle_id, self.job_id, limit))
         self.db.commit()
         assert rows
-        return {r[0]: r[1] for r in rows}
+        ret = {}
+        for i, (dim, val, count) in enumerate(rows):
+            ret[dim] = val
+            if i < 10:
+                log.debug("download param {}/{}: dim={} val={} count={}".format(i, len(rows), dim, val, count))
+        return ret
 
     def _train_phase(self):
         self.phase = PHASE_TRAIN
@@ -109,6 +119,7 @@ class Learner:
         # set initial parameters in first cycle
         self._create_cycle()
         parameters = self.initial_parameters_f()
+        assert len(parameters) == self.num_parameters
         self._add_parameters(parameters, ADMIN_USER)
 
         while True:
@@ -127,13 +138,13 @@ class Learner:
         log.debug("Client {} downloading".format(request.clientId.txt))
         if self.phase != PHASE_TRAIN: # TODO maybe only allow downloads if enough time remaining
             raise self.Exception("cannot download except in the training phase")
-        # download a random subset of the parameters
-        parameters_l = self._get_last_parameters()
-        parameters = [pb.IndexedValue(index=i, value=val) for i, val in random.sample(list(parameters_l.items()), int(len(parameters_l) * self.dropout_ratio))]
-        log.debug("all parameters = {}, parameters being downloaded = {}".format(parameters_l, parameters))
+        # download the chosen parameters
+        parameters_l = self._get_download_parameters()
+        parameters = [pb.IndexedValue(index=i, value=val) for i, val in parameters_l.items()]
         parameters = pb.Parameters(parameters=parameters)
         return pb.DownloadResponse(
                 cycleId=pb.CycleId(num=self.cycle_id),
+                waitTime=pb.Event(secondsFromNow=(self.clock)),
                 parameters=parameters,
                 )
 
@@ -189,18 +200,19 @@ class LearningServicer(pb_grpc.LearningServicer):
         return self._try(f, context)
 
 
-def run():
+# TODO add options
+def run(cycle_time=None, size=21840, port=None):
 
     # start the parameter server
     global global_learner
-    initial_parameters_f = (lambda: {i: random.random() for i in range(1, 11)}) # TODO temp
-    global_learner = Learner(initial_parameters_f=initial_parameters_f)
+    initial_parameters_f = (lambda: {i: 0 for i in range(size)})
+    global_learner = Learner(num_parameters=size, initial_parameters_f=initial_parameters_f, starting_cycle_time=cycle_time or int(os.getenv("CYCLE_TIME")) or 5)
     global_learner.start()
 
     # start the gRPC server
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
     pb_grpc.add_LearningServicer_to_server(LearningServicer(), server)
-    server.add_insecure_port('[::]:{}'.format(os.getenv("PORT") or 1453))
+    server.add_insecure_port('[::]:{}'.format(port or os.getenv("PORT") or 1453))
     server.start()
     try:
         while True: # otherwise the script just exits
