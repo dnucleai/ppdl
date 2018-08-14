@@ -8,16 +8,14 @@ import model_pb2 as mpb2
 test_file = "test_model"
 def main():
     parser = argparse.ArgumentParser(description="Model Parameters")
-    parser.add_argument('--tensor', nargs="+", action="append", type=float)
-    # parser.add_argument('-d', nargs="+", action="append", type=int)
+    parser.add_argument('--model', type=str)
     args = parser.parse_args()
 
-    model = read_proto_model( test_file )
+    if args.model:
+        model = read_proto_model( args.model )
+    else:
+        model = read_proto_model( test_file )
     m_wrapper = MW.ModelWrapper( model );
-
-    input = torch.randn(1, 1, 32, 32)
-    out = m_wrapper.apply(input)
-    print(out)
 
 
 def read_proto_model( file ):
