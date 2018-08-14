@@ -28,7 +28,7 @@ class GrpcParameterManager(ParameterManager):
         if time_diff >= self.ttl:
             cycle_id += math.ceil((time_diff - self.ttl) / int(os.environ["CYCLE_TIME"]))
         print("self.cycle_id = {}, time diff = {}, self.ttl = {}, new cycle_id = {}".format(self.cycle_id, time_diff, self.ttl, cycle_id))
-        self.grpc_client.upload(cycle_id, {idx: val.item() for idx, val in enumerate(deltas)})
+        self.grpc_client.upload(cycle_id, {idx: val.item() for idx, val in enumerate(deltas) if val.item() != 0})
 
     def download_params(self, client_id):
         self.start_time = time.time()
