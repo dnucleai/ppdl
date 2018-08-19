@@ -1,0 +1,6 @@
+#!/bin/bash
+
+dir="$(dirname "$(pwd)")"
+export PYTHONPATH="$dir/ppdl"
+
+eval "$@"
