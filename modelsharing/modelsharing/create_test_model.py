@@ -39,15 +39,15 @@ def main():
     relu2.function = "relu"
 
     view.function = "view"
-    view.init_arg.extend(["-1", "320"])
+    view.init_arg.extend(["-1", "num_flat_features"])
 
     fc1.function = "Linear"
-    fc1.init_arg.extend(["320", "50"])
+    fc1.init_arg.extend(["num_flat_features", "50"])
 
     relu3.function = "relu"
 
     dropout.function = "dropout"
-    dropout.inp.extend(["self.training"])
+    dropout.inp.extend(["0.5","training", "False"])
 
     fc2.function = "Linear"
     fc2.init_arg.extend(["50", "10"])

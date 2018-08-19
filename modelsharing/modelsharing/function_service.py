@@ -1,61 +1,61 @@
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import model_pb2 as mpb2
+#In the future, this class should be used to validate function inputs
+class FunctionService():
+    def __init__(self, fm):
+        self.input = None
+        self.training = None
+        self.flags = None
+        self.fm = fm
 
-def apply_torch_function( function_message, input=None):
-    print(function_message.function)
+    def set_input(self, input):
+        self.input = input
+        self.fm.set_input(input)
 
-    func = function_map[function_message.function]
-    init_args = function_message.init_arg
-    func = apply_function_on_args(func, init_args)
-    args = function_message.inp
+    def set_training(self, training):
+        self.training = training
 
-    if input is not None:
-        next_args = [input]
-        next_args.extend(args)
-        args = next_args
-    func = apply_function_on_args(func, args)
-    return func
+    def set_function(self, func):
+        self.function = func
 
+    def clear_inputs(self):
+        self.input = None
+        self.training = None
+        self.flags = None
 
-def apply_function_on_args(func, args):
-    args = convert_args(args)
-    if len(args) == 3:
-        return func(args[0], args[1], args[2])
-    elif len(args) == 2:
-        return func(args[0], args[1])
-    elif len(args) == 1:
-        return func(args[0])
-    else:
+    def apply_torch_function( self, function_message, training, input=None):
+        function_message = function_message
+        self.set_input(input)
+        self.set_training(training)
+
+        input_function = self.fm.get_function(function_message.function)
+        init_args, flags = self.fm.convert_args(function_message.init_arg)
+        converted_flags = self.convert_flags(flags)
+
+        init_function = self.fm.apply_function(input_function, init_args)
+
+        if len(converted_flags) >= 1:
+            init_function = init_function(converted_flags)
+
+        args = function_message.inp
+        args, flags = self.fm.convert_args(args)
+        converted_flags = self.convert_flags(flags)
+
+        if input is not None:
+            next_args = [input]
+            next_args.extend(args)
+            args = next_args
+        func = self.fm.apply_function(init_function, args)
+
+        if len(converted_flags) >= 1:
+            func = func(converted_flags)
         return func
 
-def convert_args(args):
-    converted_args = []
-    for arg in args:
-        if represents_int(arg):
-            converted_args.append(int(arg))
-        else:
-            converted_args.append(arg)
-    return converted_args
+    def convert_flags(self, flags):
+        converted_flags = []
+        for flag in flags:
+            flag_map = {
+                'training': self.training
+            }
+            converted_flags.append(flag_map[flag])
+        return converted_flags
 
-def represents_int(s):
-    try:
-        val = int(s)
-        return True
-    except (ValueError, TypeError):
-        return False
 
-def view( input ):
-    return input.view
-
-function_map = {
-    'Conv2d': nn.Conv2d,
-    'Dropout2d': nn.Dropout2d,
-    'max_pool2d': F.max_pool2d,
-    'relu': F.relu,
-    'view': view,
-    'Linear': nn.Linear,
-    'dropout': F.dropout,
-    'log_softmax': F.log_softmax
-}
