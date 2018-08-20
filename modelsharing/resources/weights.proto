@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+message Weights {
+    repeated List list = 2;
+}
+
+message List {
+    repeated List list = 3;
+    repeated float contents = 4;
+}
+
